@@ -1,0 +1,53 @@
+name: Build iPhone test app
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract reviewed source bundle
+        run: unzip -oq Source.zip
+      - name: Check browser detection
+        run: node --test Tests/detection.test.cjs
+      - name: Check native URL and seek rules
+        run: |
+          swiftc LumaCast/MediaRules.swift Tests/RulesChecks.swift -o /tmp/luma-rules
+          /tmp/luma-rules
+      - name: Generate and inspect Xcode project
+        run: |
+          python3 scripts/make_project.py
+          plutil -lint LumaCast/Info.plist LumaCast.xcodeproj/project.pbxproj
+          xcodebuild -list -project LumaCast.xcodeproj
+      - name: Build for iPhone without signing
+        run: |
+          set -o pipefail
+          xcodebuild archive -project LumaCast.xcodeproj -scheme LumaCast -configuration Release -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/LumaCast.xcarchive" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO | tee "$RUNNER_TEMP/build.log"
+      - name: Package unsigned IPA for local signing
+        run: |
+          mkdir -p "$RUNNER_TEMP/package/Payload"
+          cp -R "$RUNNER_TEMP/LumaCast.xcarchive/Products/Applications/LumaCast.app" "$RUNNER_TEMP/package/Payload/"
+          cd "$RUNNER_TEMP/package"
+          zip -qr "$RUNNER_TEMP/LumaCast-unsigned.ipa" Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LumaCast-unsigned-iPhone
+          path: ${{ runner.temp }}/LumaCast-unsigned.ipa
+          retention-days: 3
+          if-no-files-found: error
+      - name: Save build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-build-log
+          path: ${{ runner.temp }}/build.log
+          retention-days: 3
+          if-no-files-found: ignore
