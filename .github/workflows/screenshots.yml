@@ -40,6 +40,7 @@ jobs:
           print('Selected simulator:', device['name'], device['udid'])
           if device['state'] != 'Booted': subprocess.run(['xcrun','simctl','boot',device['udid']],check=True)
           PY
+          SIMULATOR_ID="$(grep '^SIMULATOR_ID=' "$GITHUB_ENV" | cut -d= -f2-)"
           xcrun simctl bootstatus "$SIMULATOR_ID" -b
           xcrun simctl status_bar "$SIMULATOR_ID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
       - name: Launch app and capture its screens
