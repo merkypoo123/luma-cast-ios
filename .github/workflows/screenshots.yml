@@ -1,0 +1,70 @@
+name: Capture iPhone screenshots
+on:
+  workflow_dispatch:
+  push:
+    paths: [.github/workflows/screenshots.yml]
+permissions:
+  contents: read
+jobs:
+  screenshots:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare simulator-only tab selection
+        run: |
+          unzip -oq Source.zip
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('LumaCast/ContentView.swift')
+          source = p.read_text(encoding='utf-8-sig')
+          old = '@State private var tab = 0'
+          assert old in source
+          source = source.replace(old, '@State private var tab = Int(ProcessInfo.processInfo.environment["LUMA_SCREENSHOT_TAB"] ?? "0") ?? 0')
+          p.write_text(source, encoding='utf-8')
+          PY
+          python3 scripts/make_project.py
+      - name: Build simulator application
+        run: |
+          set -o pipefail
+          xcodebuild build -project LumaCast.xcodeproj -scheme LumaCast -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/SimulatorBuild" CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/simulator-build.log"
+      - name: Boot iPhone simulator
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          devices = json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
+          choices = [d for runtime, ds in devices.items() if 'iOS' in runtime for d in ds if d['name'].startswith('iPhone')]
+          assert choices, 'No iPhone simulator installed'
+          device = choices[0]
+          with open(os.environ['GITHUB_ENV'], 'a') as f: f.write('SIMULATOR_ID='+device['udid']+'\n')
+          print('Selected simulator:', device['name'], device['udid'])
+          if device['state'] != 'Booted': subprocess.run(['xcrun','simctl','boot',device['udid']],check=True)
+          PY
+          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+          xcrun simctl status_bar "$SIMULATOR_ID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
+      - name: Launch app and capture its screens
+        run: |
+          mkdir -p "$RUNNER_TEMP/screenshots"
+          xcrun simctl install "$SIMULATOR_ID" "$RUNNER_TEMP/SimulatorBuild/Build/Products/Debug-iphonesimulator/LumaCast.app"
+          for tab in 0 1 2 3; do
+            xcrun simctl terminate "$SIMULATOR_ID" dev.kayle.lumacast || true
+            SIMCTL_CHILD_LUMA_SCREENSHOT_TAB="$tab" xcrun simctl launch "$SIMULATOR_ID" dev.kayle.lumacast
+            sleep 5
+            xcrun simctl spawn "$SIMULATOR_ID" launchctl list | grep dev.kayle.lumacast
+            xcrun simctl io "$SIMULATOR_ID" screenshot "$RUNNER_TEMP/screenshots/tab-$tab.png"
+          done
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: LumaCast-iPhone-screenshots
+          path: ${{ runner.temp }}/screenshots/*.png
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload simulator build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-build-log
+          path: ${{ runner.temp }}/simulator-build.log
+          retention-days: 3
+          if-no-files-found: ignore
