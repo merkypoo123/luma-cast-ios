@@ -1,68 +1,47 @@
-# Luma Cast — iPhone prototype
+# Luma Cast — standalone Google Cast iPhone app
 
-A new native iPhone app, written from scratch in SwiftUI/WebKit/AVFoundation. Kayle Cast was used only as a feature and interaction reference. No Windows application files, Electron runtime, browser profile, browsing history, or credentials are bundled.
+A new native iPhone app written from scratch, using Kayle Cast only as a feature and interaction reference. This version uses Google Cast and the TV's built-in Chromecast receiver. It does not use AirPlay, require the PC during playback, replace the TV home screen, or change its mute setting.
 
-## Current milestone
+## Version 0.2: Google Cast
 
-The source and GitHub Actions workflow are prepared. The initial GitHub upload includes the complete readable source tree in `Source.zip`; the workflow extracts it before building. The archive contains source and app icons, not a compiled app or user data. Windows checks cover injected media detection. The Xcode build and playback on a real iPhone have not yet been verified. This is not a finished or installable release until the macOS workflow succeeds and its output is signed.
+- Native Google Cast button for discovering, connecting and disconnecting TVs.
+- Google's Default Media Receiver (CC1AD845); no custom receiver registration or extra TV app is required.
+- Cast sessions, reconnection, receiver playback status and errors handled through Google's iOS SDK.
+- Selected videos wait for the user to choose a TV, then load directly on it.
+- TV play/pause/stop, timeline, back 10 / forward 30 seconds and exact-time seeking. Seek availability comes from the receiver's reported supported commands.
+- Google's expanded remote controls, including TV volume. The app does not automatically alter or unmute TV audio.
+- In-app browser, saved pages, complete-stream detection, basic ad filters and popup blocking.
+- HLS, DASH, MP4, WebM, MOV and audio URL detection. Actual container and codec support depends on the TV. Initialization fragments and media segments are excluded.
 
-## Features in this prototype
+AirPlay player UI, local AVPlayer playback and background-audio mode have been removed. WebKit AirPlay playback is explicitly disabled. The AirPlay app previously installed on the TV is separate and is not uninstalled by this change.
 
-- Browser with normal back/forward/reload controls and saved pages.
-- Detection of complete HLS, MP4, MOV, M4A and MP3 URLs from media elements and observable web requests, including subframes.
-- Fragment filtering, preservation of signed query strings, a bounded URL list, and a URL-only web-to-native bridge.
-- Basic bundled ad-domain filters and popup blocking, with an on/off switch. These filters are smaller than EasyList and do not remove ads embedded in a video stream.
-- Direct-link playback and a built-in public Sintel sample for the first TV test.
-- Native media player with AirPlay route picker, play/pause/stop, seek bar, back 10 / forward 30 seconds, and exact time entry.
-- Background audio support. No PC server is involved during playback.
+## Connect and test
 
-## How it connects to Kayle
+1. Sign and install the iPhone build. The minimum OS is iOS 17.
+2. Connect the phone to the same Wi-Fi as the TV.
+3. Tap the Cast icon and allow iOS Local Network access when requested.
+4. Choose Kayle (the TCL's Chromecast name may appear with different capitalization).
+5. In Videos, choose **Try a public sample video**. Confirm video on the TV and advancing time in Player, then test pause and forward/backward seeking.
+6. After the public sample works, browse the intended website, start its player to discover a complete stream, open Videos and choose **Cast to TV**. Browser playback does not need to finish loading first.
 
-The first version uses media AirPlay, not screen mirroring. The existing AirPlay receiver on the TV must be running, and the phone must be on the same Wi-Fi. Open a detected video, then tap the AirPlay icon and select Kayle. The interface reports whether AVPlayer is actually in external playback mode rather than assuming that opening a video connected a TV.
+## Source and build
 
-This does not implement Google Cast, DLNA, a phone-hosted media proxy, DASH playback, local file import, queueing, or FFmpeg conversion. It does not modify TV settings or install TV apps. Those are separate features, not hidden dependencies.
+The complete source tree and app icons are in `Source.zip` in the initial browser-based GitHub upload. It contains no Windows runtime, browser profile, cookies, credentials, or personal browsing history. The `.github/workflows/ios.yml` workflow extracts it before building.
 
-Browser detection does not mean a URL will play in AVPlayer. Browser-only cookies, referrer restrictions, unsupported codecs, expired links, DRM and anti-bot challenges can prevent playback. WebKit does not provide the same network interception as Electron. Where available, try the website's own AirPlay player control instead. Keeping the phone available may still be necessary for a particular AirPlay session; this is not a guarantee that every source plays after force-closing the app.
+The project generator in `scripts/make_project.py` creates the included Xcode project and adds the official GoogleCastDynamic Swift package pinned to SDK 4.8.6. Swift Package Manager downloads and verifies Google's binary SDK and resolves its GTMSessionFetcher dependency. Google SDK terms and third-party licenses apply. No SDK binary is committed to this repository. The package URL is https://github.com/googlecast/google-cast-ios-sdk.
 
-## Build using GitHub, with no personally owned Mac
+The workflow runs on a standard GitHub-hosted macOS runner, tests JS detection and native URL/MIME/time handling, validates the Xcode project, archives for physical iPhone and packages an unsigned IPA. The artifact expires after three days. Standard runner execution is free for this public repository; no paid runner is configured.
 
-The included project targets iOS 17 or later and uses only Apple frameworks. There are no app dependencies or external SDK downloads.
+The IPA needs local signing and provisioning using a compatible sideloading tool before installation. Apple credentials or signing keys should never be committed. Free-account sideloading normally requires renewal every seven days. Building on GitHub does not remove Apple's provisioning requirements.
 
-1. Review the source, then create a GitHub repository and upload this folder. Public source is visible to everyone; standard GitHub-hosted macOS runner execution is free for public repositories. Private repositories use the account's allowance. Publishing needs the owner's explicit approval.
-2. The workflow `.github/workflows/ios.yml` runs manually or on a push to `main`.
-3. The job tests web detection and native URL/time parsing, validates the project, then performs an unsigned iPhone archive using Xcode.
-4. Download the `LumaCast-unsigned-iPhone` artifact. Inside is `LumaCast-unsigned.ipa`.
-5. This IPA is NOT directly installable. A compatible sideloading tool must sign and provision it using your Apple account before installing it. Do Apple-account sign-in and device trust prompts yourself; do not upload Apple credentials or private signing keys to this repository.
-6. Free-account sideloading normally requires renewal every seven days. Building an IPA on GitHub does not remove Apple's provisioning requirements.
+## Playback limits
 
-No App Store submission, paid developer membership, paid runner, hosted service subscription, or account creation is performed by this project.
+The TV downloads the selected media URL itself. Browser-only cookies, required referrers, geo/IP restrictions, expired links, CORS restrictions, unsupported codecs, DRM and anti-bot checks can prevent playback. Detection is not a playback guarantee. This version does not relay or transcode video through the phone, and does not include the PC app's FFmpeg compatibility conversion. A browser working on iPhone does not guarantee the receiver can fetch its video URL.
 
-## First real-device test
+Live streams may not report a duration or allow seeking; the timeline stays disabled unless the receiver reports support. Ad filtering uses a small bundled domain list, not full EasyList; it cannot remove ads embedded in video. There is no local-file import, subtitle-file import, queue or custom Cast receiver in this milestone.
 
-1. Install the signed test build on the iPhone. Enable Developer Mode if iOS requests it.
-2. Ensure the TV's AirPlay receiver is running and both devices are on the same LAN.
-3. In Videos, choose **Try a public sample video**.
-4. In Player, tap AirPlay and choose **Kayle**. Confirm the picture appears on the TV and the app reports AirPlay active.
-5. Try pause/resume and seeking forward and backward. Keep the existing TV mute state.
-6. Test the intended website only after this basic sample works. Do not assume success on the sample proves that browser-protected movie links work.
+## Checks and privacy
 
-## Local checks
+Run `node --test Tests/detection.test.cjs` on Windows or macOS. On a Mac, run `swiftc LumaCast/MediaRules.swift Tests/RulesChecks.swift -o /tmp/luma-rules` followed by `/tmp/luma-rules`.
 
-On any machine with Node.js:
-
-    node --test Tests/detection.test.cjs
-
-Generate the Xcode project with Python 3 (the generated project is already included):
-
-    python3 scripts/make_project.py
-
-On a Mac, run the native parsing checks:
-
-    swiftc LumaCast/MediaRules.swift Tests/RulesChecks.swift -o /tmp/luma-rules
-    /tmp/luma-rules
-
-Or open `LumaCast.xcodeproj` in Xcode, choose your signing team, and build to a device.
-
-## Privacy and removal
-
-Bookmarks, website cookies and website storage stay in the iPhone app's sandbox. The app has no analytics, advertising SDK, custom cloud backend or Apple-account login. Websites you open still receive normal web requests. Deleting the iPhone app removes its local data. TV receiver installation and removal are separate.
+Bookmarks and WebKit data stay in the iPhone sandbox. This app has no custom cloud backend or account login. Normal website requests and Google Cast SDK traffic still occur. Delete the iPhone app to remove its local data. TV software is managed separately.
