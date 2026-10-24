@@ -2,6 +2,10 @@
 
 A new native iPhone app written from scratch, using Kayle Cast only as a feature and interaction reference. This version uses Google Cast and the TV's built-in Chromecast receiver. It does not use AirPlay, require the PC during playback, replace the TV home screen, or change its mute setting.
 
+## Version 0.2.3: preserve HLS audio relationships
+
+The browser now inspects bounded clones of playlist responses without consuming the website player's response. It recognises master playlists by their contents even when the server sends a misleading MP4 MIME type, removes referenced video/audio child playlists and opaque initialization/segment URLs from Videos, and puts master playlists first. Keeping the master preserves its audio-group references instead of casting a video-only component. Reload the browser page after updating to rediscover the full playlist. This does not convert unsupported audio codecs; actual movie audio still requires physical-TV verification.
+
 ## Version 0.2.2: visible Cast status
 
 Removed Open source page from Videos as requested; title and source labels remain. Player now shows the live status directly below the title and no longer equates connection with playback. A local, bounded Cast activity log records load submission, acknowledgement, failure, timeout and receiver state, and the app version/build is visible. The media client and active load request are retained, and each selection refreshes the live SDK session. This version needs a physical iPhone retry to diagnose the reported phone-only sample failure; no successful phone playback is claimed.
