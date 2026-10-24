@@ -2,6 +2,12 @@
 
 A new native iPhone app written from scratch, using Kayle Cast only as a feature and interaction reference. This version uses Google Cast and the TV's built-in Chromecast receiver. It does not use AirPlay, require the PC during playback, replace the TV home screen, or change its mute setting.
 
+## Version 0.2.1: source labels and playback status
+
+Videos now use the main browser page title and show the source website, embedded player host, media server and filename separately. An Open source page link identifies where a stream was found. If a site does not supply a movie title, the app cannot infer one from an opaque stream filename.
+
+Cast loads include both content ID and content URL, and status matching accepts either field. Browser playback pauses only after the TV reports playing. Failed requests show a numeric error, loading has a 45-second timeout, and selected media can be retried. The public sample is now MDN's short flower clip; the previous W3C sample failed on the target TCL receiver while this clip played through the same receiver in a desktop protocol test. Physical iPhone verification of this version remains required; Doraby playback is not yet confirmed.
+
 ## Version 0.2: Google Cast
 
 - Native Google Cast button for discovering, connecting and disconnecting TVs.
